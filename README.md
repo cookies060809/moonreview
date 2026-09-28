@@ -1,5 +1,7 @@
 # moonreview
 
+[![CI](https://github.com/cookies060809/moonreview/actions/workflows/ci.yml/badge.svg)](https://github.com/cookies060809/moonreview/actions/workflows/ci.yml)
+
 把 `git diff` 吐出来的 unified diff 文本解析成结构化数据，再渲染成人能看的改动摘要。
 
 MoonBit 写的，库那层是纯函数，不碰文件也不碰网络；命令行读 stdin 和文件用的是 native 运行时自带的 C 符号，联网评审则把请求交给系统的 curl，所以整个项目零第三方依赖。
