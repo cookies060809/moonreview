@@ -154,6 +154,16 @@ d.chat_body("模型名")                 // 同一个提示词拆成 chat 请求
 - 意见回来后没有再解析成结构化的「哪一行有什么问题」，现在打印的是模型给的原样文本。
 - 只解析，不应用 diff，也不生成 diff（生成请用 `moonbitlang/core` 自带的 `diff` 模块，它只能生成不能解析，这两件事不冲突）。
 
+## 与同类项目的对比
+
+MoonBit 社区已有两个处理 diff 的项目，功能重叠和分工边界在这里说清楚。三个项目都认得 unified diff 这一种文本格式，但解决的问题不同：
+
+- [yuzhiblue/moon-diff](https://github.com/yuzhiblue/moon-diff)（8 月黑客松项目）：从两段文本**计算**差异（LCS、Myers、Patience、Histogram、Hirschberg 五种算法），把结果渲染成 unified diff、应用回文本，另有三方合并、JSON Patch、目录树 diff。它解决"补丁从哪来"——没有两段原文就没有它。本工具正相反：输入就是 `git diff` 已经产出的文本，不算差异、不应用补丁，解决"这份改动怎么给人看、给模型看"。两者是上下游：moon-diff 生成的 unified diff，正是 moonreview 要解析的输入。
+- `mizchi/bit_apply`（[mooncakes 包](https://mooncakes.io/package/mizchi/bit_apply)，源码在 [bit-vcs/bit](https://github.com/bit-vcs/bit) 仓库的 `modules/bit_apply`，是 bit-vcs 这个 MoonBit VCS 的组件）：把 git 风格补丁解析成**文件级**元数据（`PatchInfo`：新旧路径与模式、rename/copy/new/delete 标记、增删行数、相似度指数），并提供反向补丁。它和本工具重叠最大——都在"读" git diff 文本——但它的公开接口到文件为止，没有 hunk 和行的结构；本工具建模到每一行、每行带改动前后的双行号，并在这层数据上提供摘要渲染、`--json`、退出码门禁和模型评审，这些都不在它的公开接口里，它服务的 VCS 补丁簿记场景本工具也不涉及。
+- `moonbitlang/core` 自带的 `diff` 模块：只能从两段文本生成 unified diff，不能解析（见上文"还没做的"）。
+
+把改动交给大模型评审的整条链路（带双行号的提示词构造、OpenAI 兼容接口调用、响应解包与离线降级），三个项目里只有本工具做了。
+
 ## 许可
 
 Apache-2.0，见 `LICENSE`。
