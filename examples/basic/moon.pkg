@@ -1,0 +1,5 @@
+import {
+  "cookies060809/moonreview",
+}
+
+pkgtype(kind: "executable")

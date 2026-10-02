@@ -21,11 +21,17 @@ jobs:
       - name: moon version
         run: moon version --all
 
+      - name: Check
+        run: moon check
+
       - name: Test
         run: moon test
 
       - name: Build native CLI
         run: moon build --target native
+
+      - name: Run the library example
+        run: moon run examples/basic
 
       - name: Smoke test (real process)
         run: bash scripts/smoke.sh

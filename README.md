@@ -8,7 +8,7 @@ MoonBit 写的，库那层是纯函数，不碰文件也不碰网络；命令行
 
 ## 构建
 
-需要 MoonBit 工具链（`moon`）。装好后：
+需要 MoonBit 工具链（`moon`），`moonc` 不低于 0.10.14。装好后：
 
 ```bash
 moon build cmd/moonreview    # 产物在 _build/native/debug/build/cmd/moonreview/moonreview.exe
@@ -17,6 +17,8 @@ bash scripts/smoke.sh        # 真进程冒烟：stdin、退出码、临时文�
 ```
 
 也可以直接跑：`moon run cmd/moonreview -- --stat`。
+
+仓库里还带了一个最小库用例，`moon run examples/basic` 直接跑：解析一段内嵌的 diff，打印摘要和聚合数，也是外部代码调用这个库的标准写法。
 
 当作库引入：`moon add cookies060809/moonreview`。
 
