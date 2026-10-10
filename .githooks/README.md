@@ -2,7 +2,7 @@
 
 ## Pre-commit Hook
 
-This pre-commit hook performs automatic checks before finalizing your commit.
+提交前做两件事：跑 `moon check`，以及拦住不该进公开仓库的内容 —— `PROPOSAL.md`（申报书，里面有手机号）和长得像密钥、手机号的字符串。`.gitignore` 已经排除了这些文件，这道闸是防止 `git add -f` 之类的误操作。
 
 ### Usage Instructions
 

@@ -1,3 +1,24 @@
 #!/bin/sh
+# 提交前的两道闸：代码能不能 check 过，以及有没有把不该进公开仓库的东西写进去。
+# 启用一次：git config core.hooksPath .githooks
+
+set -u
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+
+# 申报书里有手机号，只交给主办方，不进仓库
+if echo "$staged" | grep -qx 'PROPOSAL.md'; then
+  echo "pre-commit: PROPOSAL.md 是项目申报书，不要提交到公开仓库" >&2
+  echo "  撤掉它：git restore --staged PROPOSAL.md" >&2
+  exit 1
+fi
+
+# 密钥和手机号特征。命中就停下，让人确认，而不是猜它是不是误提交
+if git diff --cached -U0 | grep -nE \
+  'sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9]{20,}|glpat-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY|1[3-9][0-9]{9}'; then
+  echo "pre-commit: 上面这些行像密钥或手机号。确认是误报再提交" >&2
+  echo "  逐条撤掉：git restore --staged <文件>" >&2
+  exit 1
+fi
 
 moon check
