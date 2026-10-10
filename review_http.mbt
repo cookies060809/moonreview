@@ -45,8 +45,8 @@ pub fn chat_endpoint(base_url : String) -> String {
 /// 否则密钥里带个引号就能把后面的行改成别的配置项。
 fn curl_quote(value : String) -> String {
   let escaped = value
-    .replace(old="\\", new="\\\\")
-    .replace(old="\"", new="\\\"")
+    .replace_all(old="\\", new="\\\\")
+    .replace_all(old="\"", new="\\\"")
   "\"" + escaped + "\""
 }
 
@@ -148,12 +148,19 @@ pub fn chat_reply(raw : String) -> (Bool, String) {
 
 ///|
 /// 原始响应可能很长（也可能根本不是 JSON），只留够排查的一段。
+///
+/// 按字符数裁，不按字节数：`unsafe_substring` 的下标是字节下标，落在多字节字符
+/// 中间会切出非法 UTF-8，而响应正文里带中文是常态（网关的报错就是中文）。
 fn trim_one_line(s : String) -> String {
-  let one_line = s.replace(old="\r", new=" ").replace(old="\n", new=" ")
-  if one_line.length() <= 400 {
+  let one_line = s
+    .replace_all(old="\r\n", new=" ")
+    .replace_all(old="\r", new=" ")
+    .replace_all(old="\n", new=" ")
+  let cs = one_line.to_array()
+  if cs.length() <= 400 {
     one_line
   } else {
-    one_line.unsafe_substring(start=0, end=400) + " …"
+    String::from_array(cs[:400]) + " …"
   }
 }
 

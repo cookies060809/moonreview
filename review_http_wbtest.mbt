@@ -85,6 +85,47 @@ test "chat_reply says so when the shape is right but the field is not there" {
 }
 
 ///|
+test "curl_quote escapes every quote and backslash, not just the first" {
+  // 只转第一处的话，第二个引号就能把后面的内容变成别的配置项
+  let cfg = curl_config("https://api.example/v1", "a\"b\"c\\d\\e")
+  assert_true(cfg.contains("Bearer a\\\"b\\\"c\\\\d\\\\e\""))
+}
+
+///|
+test "curl_config does not leak the diff body or the key into argv" {
+  let cfg = curl_config("https://api.example/v1", "sk-secret-value")
+  // 密钥在配置文件里，配置文件里不含 diff 正文
+  assert_true(!cfg.contains("a.txt"))
+  assert_eq(curl_command.split(" ").to_array().length(), 3)
+}
+
+///|
+test "trim_one_line folds newlines and cuts by characters, not bytes" {
+  assert_eq(trim_one_line("a\r\nb\rc"), "a b c")
+  let boundary = "x".repeat(400)
+  assert_eq(trim_one_line(boundary), boundary)
+  // 「错」占 3 字节：按字节切到 400 会落在字符中间，切出非法 UTF-8
+  let cjk = trim_one_line("错".repeat(500))
+  assert_eq(cjk.to_array().length(), 402)
+  assert_eq(cjk.to_array()[399], '错')
+  assert_true(cjk.has_suffix(" …"))
+}
+
+///|
+test "chat_reply survives a choices field that is not a usable array" {
+  // 网关返回千奇百怪，choices 是对象、是空数组、content 不是字符串都不能 panic
+  let (ok1, t1) = chat_reply("{\"choices\":{}}")
+  assert_eq(ok1, false)
+  assert_true(t1.contains("choices[0].message.content"))
+  let (ok2, _) = chat_reply("{\"choices\":[]}")
+  assert_eq(ok2, false)
+  let (ok3, _) = chat_reply("{\"choices\":[{\"message\":{\"content\":42}}]}")
+  assert_eq(ok3, false)
+  let (ok4, _) = chat_reply("null")
+  assert_eq(ok4, false)
+}
+
+///|
 test "base_url and model fall back to the provider we tested against" {
   assert_eq(resolve_base_url(None), "https://token.sensenova.cn/v1")
   assert_eq(resolve_base_url(Some("https://other/v1")), "https://other/v1")
