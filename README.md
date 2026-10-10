@@ -12,7 +12,7 @@ MoonBit 写的，库那层是纯函数，不碰文件也不碰网络；命令行
 
 ```bash
 moon build cmd/moonreview    # 产物在 _build/native/debug/build/cmd/moonreview/moonreview.exe
-moon test                    # 60 个测试
+moon test                    # 78 个测试
 bash scripts/smoke.sh        # 真进程冒烟：stdin、退出码、临时文件清理
 ```
 
@@ -21,6 +21,12 @@ bash scripts/smoke.sh        # 真进程冒烟：stdin、退出码、临时文�
 仓库里还带了一个最小库用例，`moon run examples/basic` 直接跑：解析一段内嵌的 diff，打印摘要和聚合数，也是外部代码调用这个库的标准写法。
 
 当作库引入：`moon add cookies060809/moonreview`。
+
+## 测试
+
+`moon test` 有 78 个白盒测试，覆盖解析（六种文件状态、行数驱动的 hunk、`\ No newline` 归属、带空格和引号的路径、CRLF、每一条报错文案）、渲染、JSON、提示词构造、curl 配置转义和响应解包。`bash scripts/smoke.sh` 再从真进程层面测 stdin、退出码和临时文件清理。
+
+`moon coverage analyze` 看未覆盖的部分：集中在 native 才走得到的文件/网络 FFI 和 `main` 里的打印函数，这些由 smoke 脚本在进程层面兜住。
 
 ## 命令行
 

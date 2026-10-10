@@ -592,3 +592,167 @@ test "line numbers advance per side" {
     ),
   )
 }
+
+///|
+test "copied file keeps both paths" {
+  let d = parse(
+    src([
+      "diff --git a/src.txt b/copy.txt", "similarity index 95%", "copy from src.txt",
+      "copy to copy.txt",
+    ]),
+  )
+  let f = d.files[0]
+  assert_eq(f.status, Copied)
+  assert_eq(f.old_path, "src.txt")
+  assert_eq(f.new_path, "copy.txt")
+  assert_eq(f.display_path(), "copy.txt")
+}
+
+///|
+test "GIT binary patch marks the file binary" {
+  // `git diff --binary` 的输出：标记后面是 base85 正文，不该当成内容解析
+  let d = parse(
+    src([
+      "diff --git a/logo.png b/logo.png", "index 1111111..2222222 100644", "GIT binary patch",
+      "literal 317", "zcm%5Qo~p~F3B",
+    ]),
+  )
+  let f = d.files[0]
+  assert_eq(f.binary, true)
+  assert_eq(f.hunks.length(), 0)
+  assert_eq(f.display_path(), "logo.png")
+}
+
+///|
+test "no newline marker on removed line" {
+  let d = parse(
+    src([
+      "--- a/f.txt", "+++ b/f.txt", "@@ -1,2 +1,1 @@", " keep", "-last", "\\ No newline at end of file",
+    ]),
+  )
+  let h = d.files[0].hunks[0]
+  assert_eq(h.no_newline_old, true)
+  assert_eq(h.no_newline_new, false)
+}
+
+///|
+test "no newline marker before any content line is an error" {
+  debug_inspect(
+    parse_err(
+      src([
+        "--- a/f.txt", "+++ b/f.txt", "@@ -1,1 +1,1 @@", "\\ No newline at end of file",
+      ]),
+    ),
+    content=(
+      #|"line 4: 缺少换行符标记前面没有内容行"
+    ),
+  )
+}
+
+///|
+test "hunk content that contradicts the declared counts is an error" {
+  // @@ 说新文件侧只有 1 行，第二行却是 `+`：diff 被截断或手工改坏了
+  debug_inspect(
+    parse_err(
+      src(["--- a/f.txt", "+++ b/f.txt", "@@ -1,2 +1,1 @@", " ctx", "+x"]),
+    ),
+    content=(
+      #|"line 5: hunk 内容与 @@ 声明的行数不符"
+    ),
+  )
+}
+
+///|
+test "a record with no paths at all is an error" {
+  debug_inspect(
+    parse_err("diff --git "),
+    content=(
+      #|"line 1: 看起来不是一个 diff 记录"
+    ),
+  )
+}
+
+///|
+test "every hunk header failure says which part broke" {
+  assert_eq(
+    parse_err("@@ -1,2 1,2 @@"),
+    "line 1: hunk 头缺少 `+` 起始行号",
+  )
+  assert_eq(
+    parse_err("@@ -1,x +1,2 @@"),
+    "line 1: hunk 头的旧文件行数不是数字",
+  )
+  assert_eq(
+    parse_err("@@ -1,2 +1,x @@"),
+    "line 1: hunk 头的新文件行数不是数字",
+  )
+  assert_eq(
+    parse_err("@@ -1,2 +a,2 @@"),
+    "line 1: hunk 头的新文件行号不是数字",
+  )
+  // 超过 9 位当作失败，而不是让 Int 累加溢出
+  assert_eq(
+    parse_err("@@ -1234567891,2 +1,2 @@"),
+    "line 1: hunk 头的旧文件行号不是数字",
+  )
+}
+
+///|
+test "a header that does not start with @@ is refused" {
+  // 从 parse_diff 走不到这一条（进 parse_file 的门槛就是 `@@` 前缀），
+  // 但 parse_hunk_header 是 pub 的，直接调用时这道 guard 必须挡住。
+  let err = try {
+    let h = parse_hunk_header("+-1,2 +1,2 @@", 7)
+    "no error, heading=\{h.heading}"
+  } catch {
+    BadDiff(no, msg) => "line \{no}: \{msg}"
+  }
+  assert_eq(err, "line 7: hunk 头不是以 @@ 开头")
+}
+
+///|
+test "a hunk header with no closing @@ has no heading" {
+  // 有些工具（和部分补丁生成器）会漏掉结尾的 `@@`
+  let h = parse_hunk_header("@@ -1,1 +1,1", 1)
+  assert_eq(h.heading, "")
+  assert_eq(h.old_count, 1)
+  assert_eq(h.new_count, 1)
+}
+
+///|
+test "helpers return the input when the pattern is absent" {
+  assert_eq(after("xxx", "yy"), "xxx")
+  assert_eq(trim_suffix("xxx", "yy"), "xxx")
+  assert_eq(trim_spaces("  hi  "), "hi")
+  // tab 不算空格：函数名提示里可能带 tab
+  assert_eq(trim_spaces("a\tb "), "a\tb")
+}
+
+///|
+test "chars_slice clamps out-of-range indices" {
+  // 切片基于 Array[Char]，下标是字符而不是字节
+  let cs = "中文x".to_array()
+  assert_eq(chars_slice(cs, 1, 2), "文")
+  assert_eq(chars_slice(cs, -3, 1), "中")
+  assert_eq(chars_slice(cs, 0, 99), "中文x")
+  assert_eq(chars_slice(cs, 2, 1), "")
+  assert_eq(chars_slice(cs, 99, 100), "")
+}
+
+///|
+test "is_change skips context lines" {
+  let ctx : Line = {
+    kind: Context,
+    content: "c",
+    old_lineno: Some(1),
+    new_lineno: Some(1),
+  }
+  let add : Line = {
+    kind: Added,
+    content: "a",
+    old_lineno: None,
+    new_lineno: Some(2),
+  }
+  assert_eq(ctx.is_change(), false)
+  assert_eq(add.is_change(), true)
+}

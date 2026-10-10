@@ -138,3 +138,28 @@ test "every status has a label" {
     ),
   )
 }
+
+///|
+test "format_detail marks binary files" {
+  // 二进制文件没有 hunk，靠 (binary) 这一行告诉人为什么下面是空的
+  let d = parse(
+    src([
+      "diff --git a/logo.png b/logo.png", "index 1111111..2222222 100644", "Binary files a/logo.png and b/logo.png differ",
+    ]),
+  )
+  assert_eq(d.format_detail(), "modified  logo.png\n  (binary)")
+}
+
+///|
+test "format_detail prints the copied path and the mode line" {
+  let d = parse(
+    src([
+      "diff --git a/src.txt b/copy.txt", "similarity index 95%", "copy from src.txt",
+      "copy to copy.txt", "diff --git a/s.sh b/s.sh", "old mode 100644", "new mode 100755",
+    ]),
+  )
+  assert_eq(
+    d.format_detail(),
+    "copied  copy.txt\nmode change  s.sh\n  mode 100644 -> 100755",
+  )
+}
